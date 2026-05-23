@@ -3,6 +3,7 @@ from pathlib import Path
 from typer.testing import CliRunner
 
 from socialgraph.cli.main import app
+from socialgraph.paths import DataPaths
 
 runner = CliRunner()
 
@@ -57,3 +58,30 @@ def test_status_shows_pending_merges_count(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0
     # Should show pending merges section (count may be 0 with fixture data)
     assert "pending" in result.stdout.lower() or "merge" in result.stdout.lower()
+
+
+def test_status_shows_port_counts(tmp_path: Path, monkeypatch):
+    from socialgraph.port.state import PortCandidate, PortState
+
+    monkeypatch.chdir(tmp_path)
+    _setup(tmp_path)
+    runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
+    paths = DataPaths(tmp_path / "data")
+    state = PortState(paths.port_state)
+    cid = state.record_discovered(
+        linkedin_canonical_id="li-1",
+        candidates=[
+            PortCandidate(
+                handle="alice_x",
+                display_name="Alice",
+                bio_preview="",
+                score=0.9,
+                rationale="",
+            )
+        ],
+    )
+    state.resolve(cid, selected_handle="alice_x")
+    state.queue(cid, x_profile_url="https://x.com/alice_x")
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 0
+    assert "port" in result.stdout.lower() or "queue" in result.stdout.lower()

@@ -13,6 +13,7 @@ import typer
 
 from socialgraph.identity.pending import PendingMergeQueue
 from socialgraph.paths import DataPaths
+from socialgraph.port.state import PortState
 from socialgraph.snapshot.store import SnapshotStore
 from socialgraph.sync_log import SyncLog
 
@@ -82,3 +83,14 @@ def status_command() -> None:
         typer.echo("  run: socialgraph merge-review")
     else:
         typer.echo("\npending merges: 0")
+
+    # Port flow state
+    port_state = PortState(paths.port_state)
+    port_counts = port_state.counts()
+    if any(v > 0 for v in port_counts.values()):
+        typer.echo("\nport:")
+        typer.echo(f"  needs_review: {port_counts['needs_review']}")
+        typer.echo(f"  queued:       {port_counts['queued']}")
+        typer.echo(f"  followed:     {port_counts['followed']}")
+        if port_counts["error"] > 0:
+            typer.echo(f"  errors:       {port_counts['error']}")
