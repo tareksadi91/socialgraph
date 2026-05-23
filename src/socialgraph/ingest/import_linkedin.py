@@ -28,7 +28,7 @@ from socialgraph.ingest.header_aliases import normalize_linkedin_headers
 from socialgraph.schema.raw_contact import RawContact
 
 
-class ImportError(Exception):
+class LinkedInImportError(Exception):
     """Raised when the LinkedIn CSV cannot be located, decoded, or parsed."""
 
 
@@ -81,13 +81,13 @@ def _seek_header_and_body(text: str) -> tuple[list[str], str]:
             headers = normalize_linkedin_headers(header_row, strict=False)
             body = "".join(lines[i + 1 :])
             return headers, body
-    raise ImportError("could not locate a header row containing First Name/Last Name/URL")
+    raise LinkedInImportError("could not locate a header row containing First Name/Last Name/URL")
 
 
 def import_linkedin_csv(src: Path, dst: Path, run_id: str) -> list[RawContact]:
     """Parse LinkedIn Connections.csv → list[RawContact] + write JSONL to dst."""
     if not src.is_file():
-        raise ImportError(f"file not found: {src}")
+        raise LinkedInImportError(f"file not found: {src}")
     encoding = _detect_encoding(src)
     contacts: list[RawContact] = []
     now = datetime.now(UTC)

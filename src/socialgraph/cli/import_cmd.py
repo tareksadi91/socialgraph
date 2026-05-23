@@ -16,12 +16,7 @@ from pathlib import Path
 import typer
 
 from socialgraph.exit_codes import ExitCode
-from socialgraph.ingest.import_linkedin import (
-    ImportError as LinkedInImportError,
-)
-from socialgraph.ingest.import_linkedin import (
-    import_linkedin_csv,
-)
+from socialgraph.ingest.import_linkedin import LinkedInImportError, import_linkedin_csv
 from socialgraph.ingest.import_x import (
     XArchiveError,
     import_x_archive,
@@ -98,4 +93,4 @@ def import_command(platform: str, path: Path, force_unlock: bool) -> None:
             typer.echo(f"imported {len(contacts)} contacts → {dst}")
     except LockHeldError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=int(ExitCode.LOCK_HELD)) from exc
+        raise typer.Exit(code=ExitCode.LOCK_HELD) from exc

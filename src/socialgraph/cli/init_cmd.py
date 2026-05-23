@@ -11,6 +11,7 @@ from pathlib import Path
 
 import typer
 
+from socialgraph.exit_codes import ExitCode
 from socialgraph.paths import DataPaths
 
 
@@ -27,7 +28,7 @@ def init_command() -> None:
             err=True,
             fg=typer.colors.RED,
         )
-        raise typer.Exit(code=5)
+        raise typer.Exit(code=ExitCode.CONFIG_ERROR)
 
     if env.is_file():
         typer.echo(f".env already exists, leaving untouched: {env}")

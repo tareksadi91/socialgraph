@@ -2,12 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from socialgraph.ingest.import_linkedin import (
-    ImportError as LinkedInImportError,
-)
-from socialgraph.ingest.import_linkedin import (
-    import_linkedin_csv,
-)
+from socialgraph.ingest.import_linkedin import LinkedInImportError, import_linkedin_csv
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "linkedin"
 
