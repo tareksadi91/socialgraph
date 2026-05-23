@@ -6,9 +6,12 @@ entry point. Each subcommand's implementation lives in its own module under
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import typer
 
 from socialgraph import __version__
+from socialgraph.cli.import_cmd import import_command
 from socialgraph.cli.init_cmd import init_command
 
 app = typer.Typer(
@@ -38,6 +41,16 @@ def _root(
 def init() -> None:
     """Scaffold data/ dir and copy example .env / config.yml."""
     init_command()
+
+
+@app.command("import")
+def import_(
+    platform: str = typer.Argument(..., help="linkedin | x"),
+    path: Path = typer.Argument(..., exists=False, help="Path to export file"),
+    force_unlock: bool = typer.Option(False, "--force-unlock", help="Clear stale lock and proceed."),
+) -> None:
+    """Import official platform data export → parsed JSONL."""
+    import_command(platform, path, force_unlock=force_unlock)
 
 
 if __name__ == "__main__":
