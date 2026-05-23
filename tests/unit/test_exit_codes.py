@@ -12,6 +12,6 @@ def test_exit_codes_have_expected_values():
     assert ExitCode.BUDGET_EXHAUSTED == 7
 
 
-def test_exit_codes_are_iterable_ints():
-    for code in ExitCode:
-        assert isinstance(code.value, int)
+def test_exit_codes_have_no_duplicate_values():
+    values = [c.value for c in ExitCode]
+    assert len(set(values)) == len(values), "exit codes must be unique"
