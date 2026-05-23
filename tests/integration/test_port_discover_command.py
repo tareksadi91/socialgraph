@@ -101,6 +101,7 @@ def test_port_discover_all_miss_marks_unresolved(tmp_path: Path, monkeypatch):
     # All unresolved — MUST land in needs_review (with empty candidates) so they
     # surface in `port review` with the [t]ype handle manually option.
     # NOT in rejected (rejected = explicit user "no thanks" only).
+    # connections_small.csv has 3 LinkedIn contacts; --limit 3 processes all of them
     assert counts["needs_review"] == 3
     assert counts["rejected"] == 0
     # Each unresolved entry has 0 candidates
@@ -122,10 +123,23 @@ def test_port_discover_skips_already_processed(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     _setup_with_li_import(tmp_path)
     _patch = "socialgraph.cli.port_discover_cmd._make_tiers"
+
+    def _needs_review_count() -> int:
+        return PortState(DataPaths(tmp_path / "data").port_state).counts()["needs_review"]
+
     with patch(_patch, return_value=[FakeTierWithCandidate()]):
         runner.invoke(app, ["port", "discover", "--limit", "3"])
+        count_after_first = _needs_review_count()
         runner.invoke(app, ["port", "discover", "--limit", "3"])
-    paths = DataPaths(tmp_path / "data")
-    state = PortState(paths.port_state)
-    seen_li = {e.linkedin_canonical_id for e in state.list_needs_review()}
-    assert len(seen_li) <= 3
+        count_after_second = _needs_review_count()
+    # Second run should not add new entries — already-processed persons are skipped
+    assert count_after_second == count_after_first
+
+
+def test_port_discover_no_tiers_configured(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _setup_with_li_import(tmp_path)
+    with patch("socialgraph.cli.port_discover_cmd._make_tiers", return_value=[]):
+        result = runner.invoke(app, ["port", "discover", "--limit", "3"])
+    assert result.exit_code == 0
+    assert "no discovery tiers configured" in result.stdout.lower()
