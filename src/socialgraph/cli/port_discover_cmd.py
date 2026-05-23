@@ -1,46 +1,63 @@
-"""`socialgraph port discover [--limit N]` — find X handles for LinkedIn contacts.
+"""`socialgraph port discover [--limit N]` — find X handles via 4-tier cascade.
 
-For each LinkedIn-only person (not yet processed):
-  1. Build query: '"Full Name" Current Company'
-  2. Call XSearchClient.search()
-  3. Score results, keep top candidates above threshold
-  4. Record in PortState
+Tier 1 (LinkedIn contact info): auto-resolves when explicit X link found.
+Tier 2 (Google CSE): produces candidates for review queue.
+Tier 3 (Apollo, optional): produces candidates if APOLLO_API_KEY set.
+Tier 4: unresolved — lands in review queue with empty candidates for manual entry.
 
-Skips already-processed persons. Stops at --limit.
+Tiers are loaded via _make_tiers(paths) which reads config/env. Tests
+monkeypatch _make_tiers to inject fakes.
 """
 
 from __future__ import annotations
 
+import os
+from contextlib import ExitStack
 from pathlib import Path
 
 import typer
 
 from socialgraph.identity.canonical import CanonicalLog
 from socialgraph.paths import DataPaths
-from socialgraph.port.scoring import XSearchResult, score_candidate
-from socialgraph.port.state import PortCandidate, PortState
-from socialgraph.port.x_search import (
-    PlaywrightXSearchClient,
-    XSearchClient,
-)
+from socialgraph.port.discovery import DiscoveryResult, Tier, run_tiers
+from socialgraph.port.state import PortState
 from socialgraph.snapshot.store import SnapshotStore
 
-_MIN_SCORE = 0.4
-_MAX_KEEP_CANDIDATES = 3
+_AUTO_RESOLVE_THRESHOLD = 1.0  # only Tier 1 (explicit link) auto-resolves
 
 
-def _make_search_client(paths: DataPaths) -> XSearchClient:
-    """Construct the production XSearchClient. Tests monkeypatch this function."""
-    profile_dir = paths.profiles / "x"
-    if not profile_dir.is_dir():
-        raise FileNotFoundError(f"X profile not found at {profile_dir}. Run: socialgraph login x")
-    return PlaywrightXSearchClient(profile_dir).__enter__()
+def _make_tiers(paths: DataPaths, stack: ExitStack) -> list[Tier]:
+    """Build tier list from env config. Tier resources owned by the ExitStack.
 
+    Tests monkeypatch this function to return a list of fake tiers (no stack
+    interaction needed since fakes don't require cleanup).
+    """
+    tiers: list[Tier] = []
 
-def _build_query(name: str, company: str | None) -> str:
-    if company:
-        return f'"{name}" {company}'
-    return f'"{name}"'
+    # Tier 1: LinkedIn contact info (requires logged-in session)
+    # Owned by ExitStack so the Playwright context is closed on command exit.
+    li_profile = paths.profiles / "linkedin"
+    if li_profile.is_dir():
+        from socialgraph.port.linkedin_scraper import LinkedInContactInfoClient
+
+        tiers.append(stack.enter_context(LinkedInContactInfoClient(li_profile)))
+
+    # Tier 2: Google CSE (requires API key) — pure HTTP, no resources to clean up
+    google_key = os.environ.get("GOOGLE_CSE_API_KEY", "")
+    google_cx = os.environ.get("GOOGLE_CSE_ID", "")
+    if google_key and google_cx:
+        from socialgraph.port.web_search import GoogleCSEClient
+
+        tiers.append(GoogleCSEClient(api_key=google_key, cse_id=google_cx))
+
+    # Tier 3: Apollo (optional, requires API key) — pure HTTP
+    apollo_key = os.environ.get("APOLLO_API_KEY", "")
+    if apollo_key:
+        from socialgraph.port.enrichment import ApolloClient
+
+        tiers.append(ApolloClient(api_key=apollo_key))
+
+    return tiers
 
 
 def _already_has_x_observation(canonical_id: str, log: CanonicalLog) -> bool:
@@ -72,54 +89,56 @@ def port_discover_command(limit: int) -> None:
             break
 
     if not targets:
-        typer.echo("no LinkedIn-only persons to discover (everyone is processed or has X)")
+        typer.echo("no LinkedIn-only persons to discover (all processed or already on X)")
         return
 
-    typer.echo(f"discovering X handles for {len(targets)} LinkedIn contact(s)...")
+    # ExitStack owns all tier resources (Playwright contexts, etc.) — guaranteed
+    # cleanup even if run_tiers or downstream raises.
+    with ExitStack() as stack:
+        tiers = _make_tiers(paths, stack)
 
-    client = _make_search_client(paths)
-    try:
+        if not tiers:
+            typer.echo("no discovery tiers configured.")
+            typer.echo("  Tier 1: run `socialgraph login linkedin` to enable contact-info scrape")
+            typer.echo("  Tier 2: set GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID in .env")
+            typer.echo("  Tier 3: set APOLLO_API_KEY in .env (optional)")
+            return
+
+        typer.echo(
+            f"discovering X handles for {len(targets)} person(s) via {len(tiers)} tier(s)..."
+        )
+        auto_resolved = 0
+        queued_for_review = 0
+
         for target in targets:
             name = target.attrs.get("full_name", "")
             company = target.attrs.get("current_company")
-            query = _build_query(name, company)
-            try:
-                results = client.search(query)
-            except Exception as exc:
-                typer.secho(
-                    f"  search failed for {name!r}: {exc}", err=True, fg=typer.colors.YELLOW
-                )
-                continue
+            profile_url = (target.attrs.get("platform_urls") or {}).get("linkedin", "")
 
-            scored: list[tuple[float, str, XSearchResult]] = []
-            for r in results:
-                s, rationale = score_candidate(name, company, r)
-                if s >= _MIN_SCORE:
-                    scored.append((s, rationale, r))
-            scored.sort(key=lambda t: t[0], reverse=True)
-            top = scored[:_MAX_KEEP_CANDIDATES]
-
-            candidates = [
-                PortCandidate(
-                    handle=r.handle,
-                    display_name=r.display_name,
-                    bio_preview=r.bio_preview,
-                    score=s,
-                    rationale=rationale,
-                )
-                for s, rationale, r in top
-            ]
-            port_state.record_discovered(
-                linkedin_canonical_id=target.canonical_id,
-                candidates=candidates,
+            result: DiscoveryResult = run_tiers(
+                name, company, profile_url, tiers, auto_resolve_threshold=_AUTO_RESOLVE_THRESHOLD
             )
-            label = f"({len(candidates)} candidate(s))" if candidates else "(no match)"
-            typer.echo(f"  {name} {label}")
-    finally:
-        exit_method = getattr(client, "__exit__", None)
-        if exit_method is not None:
-            exit_method(None, None, None)
 
-    counts = port_state.counts()
-    typer.echo(f"\ndone. needs_review: {counts['needs_review']}, rejected: {counts['rejected']}")
-    typer.echo("next: socialgraph port review")
+            if result.handle is not None:
+                # Auto-resolved (Tier 1 found explicit link) — queue directly
+                cid = port_state.record_discovered(
+                    linkedin_canonical_id=target.canonical_id, candidates=[]
+                )
+                port_state.resolve(cid, selected_handle=result.handle)
+                port_state.queue(cid, x_profile_url=f"https://x.com/{result.handle}")
+                auto_resolved += 1
+                typer.echo(f"  {name} → @{result.handle} [auto] ({result.source})")
+            else:
+                # Candidates for review OR unresolved — both land in needs_review
+                port_state.record_discovered(
+                    linkedin_canonical_id=target.canonical_id, candidates=result.candidates
+                )
+                queued_for_review += 1
+                label = (
+                    f"{len(result.candidates)} candidate(s)" if result.candidates else "unresolved"
+                )
+                typer.echo(f"  {name} → {label}")
+
+        typer.echo(f"\ndone. auto-resolved: {auto_resolved}, needs_review: {queued_for_review}")
+        if queued_for_review:
+            typer.echo("next: socialgraph port review")

@@ -9,9 +9,8 @@ from typer.testing import CliRunner
 
 from socialgraph.cli.main import app
 from socialgraph.paths import DataPaths
-from socialgraph.port.scoring import XSearchResult
-from socialgraph.port.state import PortState
-from socialgraph.port.x_search import FakeXSearchClient
+from socialgraph.port.discovery import DiscoveryResult
+from socialgraph.port.state import PortCandidate, PortState
 
 runner = CliRunner()
 PROJECT_ROOT = Path(__file__).parents[2]
@@ -25,26 +24,34 @@ def _setup(tmp_path: Path) -> None:
     runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
 
 
-def _fake_with_alice_match() -> FakeXSearchClient:
-    return FakeXSearchClient(
-        responses={
-            '"Alice Example" Acme Co': [
-                XSearchResult(
-                    handle="alice_example",
-                    display_name="Alice Example",
-                    bio_preview="Founder @ Acme Co",
-                ),
+class _FakeTierWithCandidate:
+    """Always returns one candidate (simulates Google CSE / Apollo hit)."""
+
+    def discover(self, name, company, profile_url) -> DiscoveryResult:
+        handle = name.lower().replace(" ", "_")
+        return DiscoveryResult(
+            handle=None,
+            confidence=0.7,
+            source="fake",
+            candidates=[
+                PortCandidate(
+                    handle=handle,
+                    display_name=name,
+                    bio_preview="",
+                    score=0.7,
+                    rationale="",
+                    source="fake",
+                )
             ],
-        },
-    )
+        )
 
 
 def test_m5_full_port_flow(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     _setup(tmp_path)
-    fake = _fake_with_alice_match()
 
-    with patch("socialgraph.cli.port_discover_cmd._make_search_client", return_value=fake):
+    _patch = "socialgraph.cli.port_discover_cmd._make_tiers"
+    with patch(_patch, return_value=[_FakeTierWithCandidate()]):
         r = runner.invoke(app, ["port", "discover", "--limit", "3"])
     assert r.exit_code == 0
 
@@ -80,8 +87,8 @@ def test_m5_round_trip_sovereignty(tmp_path: Path, monkeypatch):
     """Backup -> nuke -> restore -> port_state.jsonl replays correctly."""
     monkeypatch.chdir(tmp_path)
     _setup(tmp_path)
-    fake = _fake_with_alice_match()
-    with patch("socialgraph.cli.port_discover_cmd._make_search_client", return_value=fake):
+    _patch = "socialgraph.cli.port_discover_cmd._make_tiers"
+    with patch(_patch, return_value=[_FakeTierWithCandidate()]):
         runner.invoke(app, ["port", "discover", "--limit", "3"])
 
     paths = DataPaths(tmp_path / "data")
