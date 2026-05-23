@@ -146,9 +146,11 @@ def test_port_candidate_has_source_field():
 ```
 Expected: `ImportError: No module named 'socialgraph.port.discovery'` and failure on `source` field.
 
-- [ ] **Step 3: Add `source` field to `PortCandidate`**
+- [ ] **Step 3: Update `PortCandidate` + `record_discovered`/`_apply` semantics in `state.py`**
 
-Read `src/socialgraph/port/state.py`. In the `PortCandidate` dataclass, add `source: str = ""` as the last field:
+Read `src/socialgraph/port/state.py`.
+
+**3a. Add `source: str = ""` field to `PortCandidate`** (last field):
 
 ```python
 @dataclass
@@ -160,6 +162,48 @@ class PortCandidate:
     rationale: str
     source: str = ""   # which tier discovered this: li_contact_info | google_cse | apollo | manual
 ```
+
+**3b. Change `record_discovered` to always set `status="needs_review"`** (regardless of candidates count).
+
+Find the method:
+```python
+    def record_discovered(
+        self,
+        linkedin_canonical_id: str,
+        candidates: list[PortCandidate],
+    ) -> str:
+        """Record discovery result. Returns the candidate_id."""
+        candidate_id = str(uuid.uuid4())
+        entry = PortEntry(
+            candidate_id=candidate_id,
+            linkedin_canonical_id=linkedin_canonical_id,
+            candidates=candidates,
+            status="needs_review" if candidates else "rejected",
+        )
+```
+
+Replace the `status=` line with:
+```python
+            status="needs_review",
+```
+
+**3c. Make the same change in `_apply()`** so log replay matches.
+
+Find the `if kind == "discovered":` branch:
+```python
+        if kind == "discovered":
+            candidates = [PortCandidate(**c) for c in event.get("candidates", [])]
+            entry = PortEntry(
+                canonical_id=cid,
+                linkedin_canonical_id=event["linkedin_canonical_id"],
+                candidates=candidates,
+                status="needs_review" if candidates else "rejected",
+            )
+```
+
+Replace the same `status=` line with `status="needs_review"`.
+
+**Rationale:** With M4-lite Tier 4 (unresolved), empty candidates must surface in `port review` for manual `[t]ype handle` entry. The `"rejected"` state is reserved for explicit user rejection only.
 
 - [ ] **Step 4: Create `discovery.py`**
 
@@ -881,14 +925,26 @@ class FakeApolloClient:
         return DiscoveryResult(handle=None, confidence=0.9, source="apollo", candidates=[candidate])
 ```
 
-- [ ] **Step 4: Run tests, verify pass**
+- [ ] **Step 4: Verify Apollo API surface against current docs**
+
+The plan uses `_APOLLO_URL = "https://api.apollo.io/v1/people/match"` with header `x-api-key`. Apollo's API has changed paths and auth styles over time. Before committing, open https://docs.apollo.io/reference/people-enrichment and confirm:
+
+1. **Endpoint path** — current docs may use `https://api.apollo.io/api/v1/people/match` (with `/api/`) instead of `/v1/`. If so, update `_APOLLO_URL`.
+2. **Auth header** — current docs may use `Authorization: Bearer <key>`, `Api-Key: <key>`, or `x-api-key: <key>`. Update the `headers={...}` dict to match.
+3. **Response field name** — the plan reads `resp.json()["person"]["twitter_url"]`. Some Apollo versions return `twitter_url` at top level or under `people[0]`. Adjust the `.get("person", {}).get("twitter_url")` chain if Apollo's shape differs.
+
+If you adjust any of the three, also update the corresponding mock in `test_apollo_client_parses_twitter_url` so the test still mirrors real API shape.
+
+If you cannot access docs (offline / API moved behind login), commit with the current shape — runtime will return None on a 404 and Apollo will fall through silently. Add a TODO comment at top of `enrichment.py` flagging that the endpoint may need verification on first live use.
+
+- [ ] **Step 5: Run tests, verify pass**
 
 ```bash
 .venv/bin/pytest tests/unit/test_enrichment.py -v
 ```
 Expected: 5 passed.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add src/socialgraph/port/enrichment.py tests/unit/test_enrichment.py
@@ -996,9 +1052,15 @@ def test_port_discover_all_miss_marks_unresolved(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0
     paths = DataPaths(tmp_path / "data")
     state = PortState(paths.port_state)
-    # All unresolved — still in needs_review with empty candidates
     counts = state.counts()
-    assert counts["needs_review"] + counts["rejected"] == 3
+    # All unresolved — MUST land in needs_review (with empty candidates) so they
+    # surface in `port review` with the [t]ype handle manually option.
+    # NOT in rejected (rejected = explicit user "no thanks" only).
+    assert counts["needs_review"] == 3
+    assert counts["rejected"] == 0
+    # Each unresolved entry has 0 candidates
+    for entry in state.list_needs_review():
+        assert entry.candidates == []
 
 
 def test_port_discover_no_graph(tmp_path: Path, monkeypatch):
@@ -1043,6 +1105,7 @@ monkeypatch _make_tiers to inject fakes.
 from __future__ import annotations
 
 import os
+from contextlib import ExitStack
 from pathlib import Path
 
 import typer
@@ -1056,24 +1119,29 @@ from socialgraph.snapshot.store import SnapshotStore
 _AUTO_RESOLVE_THRESHOLD = 1.0  # only Tier 1 (explicit link) auto-resolves
 
 
-def _make_tiers(paths: DataPaths) -> list[Tier]:
-    """Build tier list from env config. Tests monkeypatch this function."""
+def _make_tiers(paths: DataPaths, stack: ExitStack) -> list[Tier]:
+    """Build tier list from env config. Tier resources owned by the ExitStack.
+
+    Tests monkeypatch this function to return a list of fake tiers (no stack
+    interaction needed since fakes don't require cleanup).
+    """
     tiers: list[Tier] = []
 
     # Tier 1: LinkedIn contact info (requires logged-in session)
+    # Owned by ExitStack so the Playwright context is closed on command exit.
     li_profile = paths.profiles / "linkedin"
     if li_profile.is_dir():
         from socialgraph.port.linkedin_scraper import LinkedInContactInfoClient
-        tiers.append(LinkedInContactInfoClient(li_profile).__enter__())
+        tiers.append(stack.enter_context(LinkedInContactInfoClient(li_profile)))
 
-    # Tier 2: Google CSE (requires API key)
+    # Tier 2: Google CSE (requires API key) — pure HTTP, no resources to clean up
     google_key = os.environ.get("GOOGLE_CSE_API_KEY", "")
     google_cx = os.environ.get("GOOGLE_CSE_ID", "")
     if google_key and google_cx:
         from socialgraph.port.web_search import GoogleCSEClient
         tiers.append(GoogleCSEClient(api_key=google_key, cse_id=google_cx))
 
-    # Tier 3: Apollo (optional, requires API key)
+    # Tier 3: Apollo (optional, requires API key) — pure HTTP
     apollo_key = os.environ.get("APOLLO_API_KEY", "")
     if apollo_key:
         from socialgraph.port.enrichment import ApolloClient
@@ -1114,48 +1182,59 @@ def port_discover_command(limit: int) -> None:
         typer.echo("no LinkedIn-only persons to discover (all processed or already on X)")
         return
 
-    tiers = _make_tiers(paths)
-    if not tiers:
-        typer.echo("no discovery tiers configured.")
-        typer.echo("  Tier 1: run `socialgraph login linkedin` to enable contact-info scrape")
-        typer.echo("  Tier 2: set GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID in .env")
-        typer.echo("  Tier 3: set APOLLO_API_KEY in .env (optional)")
-        return
+    # ExitStack owns all tier resources (Playwright contexts, etc.) — guaranteed
+    # cleanup even if run_tiers or downstream raises.
+    with ExitStack() as stack:
+        # Tests patch _make_tiers; production code passes the real stack.
+        # Test fakes don't enter the stack — they're plain objects with no cleanup.
+        try:
+            tiers = _make_tiers(paths, stack)
+        except TypeError:
+            # Backward-compat for tests that monkeypatch _make_tiers with a
+            # 0-arg or 1-arg return_value (no `stack` parameter accepted).
+            tiers = _make_tiers(paths)  # type: ignore[call-arg]
 
-    typer.echo(f"discovering X handles for {len(targets)} person(s) via {len(tiers)} tier(s)...")
-    auto_resolved = 0
-    queued_for_review = 0
+        if not tiers:
+            typer.echo("no discovery tiers configured.")
+            typer.echo("  Tier 1: run `socialgraph login linkedin` to enable contact-info scrape")
+            typer.echo("  Tier 2: set GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID in .env")
+            typer.echo("  Tier 3: set APOLLO_API_KEY in .env (optional)")
+            return
 
-    for target in targets:
-        name = target.attrs.get("full_name", "")
-        company = target.attrs.get("current_company")
-        profile_url = (target.attrs.get("platform_urls") or {}).get("linkedin", "")
+        typer.echo(f"discovering X handles for {len(targets)} person(s) via {len(tiers)} tier(s)...")
+        auto_resolved = 0
+        queued_for_review = 0
 
-        result: DiscoveryResult = run_tiers(
-            name, company, profile_url, tiers, auto_resolve_threshold=_AUTO_RESOLVE_THRESHOLD
-        )
+        for target in targets:
+            name = target.attrs.get("full_name", "")
+            company = target.attrs.get("current_company")
+            profile_url = (target.attrs.get("platform_urls") or {}).get("linkedin", "")
 
-        if result.handle is not None:
-            # Auto-resolved (Tier 1 found explicit link) — queue directly
-            cid = port_state.record_discovered(
-                linkedin_canonical_id=target.canonical_id, candidates=[]
+            result: DiscoveryResult = run_tiers(
+                name, company, profile_url, tiers, auto_resolve_threshold=_AUTO_RESOLVE_THRESHOLD
             )
-            port_state.resolve(cid, selected_handle=result.handle)
-            port_state.queue(cid, x_profile_url=f"https://x.com/{result.handle}")
-            auto_resolved += 1
-            typer.echo(f"  {name} → @{result.handle} [auto] ({result.source})")
-        else:
-            # Candidates for review OR unresolved
-            port_state.record_discovered(
-                linkedin_canonical_id=target.canonical_id, candidates=result.candidates
-            )
-            queued_for_review += 1
-            label = f"{len(result.candidates)} candidate(s)" if result.candidates else "unresolved"
-            typer.echo(f"  {name} → {label}")
 
-    typer.echo(f"\ndone. auto-resolved: {auto_resolved}, needs_review: {queued_for_review}")
-    if queued_for_review:
-        typer.echo("next: socialgraph port review")
+            if result.handle is not None:
+                # Auto-resolved (Tier 1 found explicit link) — queue directly
+                cid = port_state.record_discovered(
+                    linkedin_canonical_id=target.canonical_id, candidates=[]
+                )
+                port_state.resolve(cid, selected_handle=result.handle)
+                port_state.queue(cid, x_profile_url=f"https://x.com/{result.handle}")
+                auto_resolved += 1
+                typer.echo(f"  {name} → @{result.handle} [auto] ({result.source})")
+            else:
+                # Candidates for review OR unresolved — both land in needs_review
+                port_state.record_discovered(
+                    linkedin_canonical_id=target.canonical_id, candidates=result.candidates
+                )
+                queued_for_review += 1
+                label = f"{len(result.candidates)} candidate(s)" if result.candidates else "unresolved"
+                typer.echo(f"  {name} → {label}")
+
+        typer.echo(f"\ndone. auto-resolved: {auto_resolved}, needs_review: {queued_for_review}")
+        if queued_for_review:
+            typer.echo("next: socialgraph port review")
 ```
 
 - [ ] **Step 3: Run integration tests, verify pass**
