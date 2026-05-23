@@ -7,7 +7,6 @@ from socialgraph.ingest.import_x import (
     import_x_archive,
 )
 
-
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "x"
 
 
@@ -34,7 +33,7 @@ def test_imports_v2_archive(tmp_path: Path):
 
 def test_corrupt_archive_raises(tmp_path: Path):
     out = tmp_path / "out.jsonl"
-    with pytest.raises(XArchiveError, match="following.js"):
+    with pytest.raises(XArchiveError, match=r"following\.js"):
         import_x_archive(FIXTURES / "archive_corrupt.zip", out, run_id="rc")
 
 

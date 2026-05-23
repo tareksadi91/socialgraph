@@ -13,9 +13,7 @@ X_FIXTURE = PROJECT_ROOT / "tests" / "fixtures" / "x" / "archive_v1.zip"
 
 def _setup(tmp_path: Path) -> None:
     (tmp_path / ".env.example").write_text("\n")
-    (tmp_path / "config.yml.example").write_text(
-        "storage:\n  data_dir: ./data\n  gzip_raw: true\n"
-    )
+    (tmp_path / "config.yml.example").write_text("storage:\n  data_dir: ./data\n  gzip_raw: true\n")
     runner.invoke(app, ["init"])
 
 

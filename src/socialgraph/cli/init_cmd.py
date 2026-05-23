@@ -3,6 +3,7 @@
 Run once per project clone. Does NOT overwrite existing .env or config.yml
 to protect user customizations.
 """
+
 from __future__ import annotations
 
 import shutil

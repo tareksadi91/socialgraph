@@ -25,7 +25,15 @@ def test_paths_resolves_subdirs(tmp_path: Path):
 def test_paths_ensure_creates_all_dirs(tmp_path: Path):
     paths = DataPaths(tmp_path)
     paths.ensure()
-    for d in [paths.raw, paths.parsed, paths.snapshots, paths.profiles, paths.backups, paths.cache, paths.viz]:
+    for d in [
+        paths.raw,
+        paths.parsed,
+        paths.snapshots,
+        paths.profiles,
+        paths.backups,
+        paths.cache,
+        paths.viz,
+    ]:
         assert d.is_dir()
 
 

@@ -3,6 +3,7 @@
 LinkedIn exports the same data in localized column headers. This table maps
 known locale variants back to canonical snake_case names used downstream.
 """
+
 from __future__ import annotations
 
 

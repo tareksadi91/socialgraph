@@ -7,6 +7,7 @@ on every record so any attribute can be traced back to its raw source.
 Schema is versioned via `schema_version` field. Migrations apply on read,
 not on disk (snapshots remain immutable).
 """
+
 from __future__ import annotations
 
 import json
@@ -79,6 +80,6 @@ class RawContact(BaseModel):
         return self.model_dump_json(exclude_none=False)
 
     @classmethod
-    def from_jsonl_line(cls, line: str) -> "RawContact":
+    def from_jsonl_line(cls, line: str) -> RawContact:
         """Deserialize from a single JSON line."""
         return cls.model_validate(json.loads(line))

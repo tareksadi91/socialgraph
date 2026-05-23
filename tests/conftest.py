@@ -1,4 +1,5 @@
 """Shared pytest fixtures for the socialgraph test suite."""
+
 from pathlib import Path
 
 import pytest

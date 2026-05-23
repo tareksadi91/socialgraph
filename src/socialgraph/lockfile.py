@@ -3,12 +3,13 @@
 A single `data/.lock` file holds {pid, started_at, hostname}. New invocations
 refuse to start while it's held. Stale locks (process not alive) auto-clear.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import platform
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import TracebackType
 from typing import Self
@@ -52,11 +53,15 @@ class Lock:
                     f"another instance running (pid {pid}). Use --force-unlock if stale."
                 )
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({
-            "pid": os.getpid(),
-            "started_at": datetime.now(timezone.utc).isoformat(),
-            "hostname": platform.node(),
-        }))
+        self.path.write_text(
+            json.dumps(
+                {
+                    "pid": os.getpid(),
+                    "started_at": datetime.now(UTC).isoformat(),
+                    "hostname": platform.node(),
+                }
+            )
+        )
         return self
 
     def __exit__(

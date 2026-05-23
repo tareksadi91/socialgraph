@@ -1,4 +1,5 @@
 """M1 smoke: fresh project → init → import LI → import X → status. Demoable end-to-end."""
+
 import json
 from pathlib import Path
 
@@ -16,9 +17,7 @@ X_FIXTURE = PROJECT_ROOT / "tests" / "fixtures" / "x" / "archive_v1.zip"
 def test_m1_full_bootstrap(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env.example").write_text("\n")
-    (tmp_path / "config.yml.example").write_text(
-        "storage:\n  data_dir: ./data\n  gzip_raw: true\n"
-    )
+    (tmp_path / "config.yml.example").write_text("storage:\n  data_dir: ./data\n  gzip_raw: true\n")
 
     # 1. init
     r = runner.invoke(app, ["init"])
@@ -30,7 +29,7 @@ def test_m1_full_bootstrap(tmp_path: Path, monkeypatch):
     assert r.exit_code == 0
     li_files = list((tmp_path / "data" / "parsed").glob("linkedin_import_*.jsonl"))
     assert len(li_files) == 1
-    li_records = [json.loads(l) for l in li_files[0].read_text().splitlines()]
+    li_records = [json.loads(line) for line in li_files[0].read_text().splitlines()]
     assert len(li_records) == 3
     assert all(r["platform"] == "linkedin" for r in li_records)
     assert all(r["source"] == "import" for r in li_records)
@@ -42,7 +41,7 @@ def test_m1_full_bootstrap(tmp_path: Path, monkeypatch):
     assert r.exit_code == 0
     x_files = list((tmp_path / "data" / "parsed").glob("x_import_*.jsonl"))
     assert len(x_files) == 1
-    x_records = [json.loads(l) for l in x_files[0].read_text().splitlines()]
+    x_records = [json.loads(line) for line in x_files[0].read_text().splitlines()]
     assert len(x_records) == 3
     handles = sorted(r["handle"] for r in x_records)
     assert handles == ["bob_x", "carol_x", "dan_x"]
@@ -55,7 +54,7 @@ def test_m1_full_bootstrap(tmp_path: Path, monkeypatch):
 
     # 5. sync_log captured both runs
     log = (tmp_path / "data" / "sync_log.jsonl").read_text().splitlines()
-    events = [json.loads(l) for l in log if l.strip()]
+    events = [json.loads(line) for line in log if line.strip()]
     starts = [e for e in events if e["event"] == "import.start"]
     ends = [e for e in events if e["event"] == "import.end"]
     assert len(starts) == 2

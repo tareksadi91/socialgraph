@@ -1,4 +1,5 @@
 """YAML config loader with env: ref resolution for socialgraph."""
+
 from __future__ import annotations
 
 import os
@@ -67,7 +68,7 @@ def resolve_env_refs(value: str, env: dict[str, str] | None = None) -> str:
     """
     if not isinstance(value, str) or not value.startswith("env:"):
         return value
-    key = value[len("env:"):]
+    key = value[len("env:") :]
     source = env if env is not None else os.environ
     if key not in source or source[key] == "":
         raise ConfigError(f"env:{key} referenced but not set")

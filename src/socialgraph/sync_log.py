@@ -3,13 +3,15 @@
 Every CLI command emits structured `cmd.start` / `cmd.end` events plus any
 `error.*` events. Each record is one JSON line with a UTC timestamp.
 """
+
 from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timezone
+from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 
 class SyncLog:
@@ -21,7 +23,7 @@ class SyncLog:
     def append(self, event: str, **fields: Any) -> None:
         """Append one event with current UTC timestamp + arbitrary fields."""
         record: dict[str, Any] = {
-            "ts": datetime.now(timezone.utc).isoformat(),
+            "ts": datetime.now(UTC).isoformat(),
             "event": event,
             **fields,
         }

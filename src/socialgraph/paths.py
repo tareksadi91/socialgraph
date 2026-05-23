@@ -1,4 +1,5 @@
 """Canonical filesystem layout under the data/ root."""
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -71,7 +72,15 @@ class DataPaths:
         return self.root / ".no_llm_ack"
 
     def ensure(self) -> None:
-        for d in (self.raw, self.parsed, self.snapshots, self.profiles, self.backups, self.cache, self.viz):
+        for d in (
+            self.raw,
+            self.parsed,
+            self.snapshots,
+            self.profiles,
+            self.backups,
+            self.cache,
+            self.viz,
+        ):
             d.mkdir(parents=True, exist_ok=True)
 
     def parsed_for_run(self, platform: str, source: str, run_id: str) -> Path:

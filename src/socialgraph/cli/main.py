@@ -4,6 +4,7 @@ Subcommands are registered in this module to keep `cli/main.py` as the single
 entry point. Each subcommand's implementation lives in its own module under
 `src/socialgraph/cli/`.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +33,12 @@ def _version_callback(value: bool) -> None:
 @app.callback()
 def _root(
     version: bool = typer.Option(
-        False, "--version", "-V", callback=_version_callback, is_eager=True, help="Show version and exit."
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show version and exit.",
     ),
 ) -> None:
     """SocialGraph CLI."""
@@ -48,7 +54,9 @@ def init() -> None:
 def import_(
     platform: str = typer.Argument(..., help="linkedin | x"),
     path: Path = typer.Argument(..., exists=False, help="Path to export file"),
-    force_unlock: bool = typer.Option(False, "--force-unlock", help="Clear stale lock and proceed."),
+    force_unlock: bool = typer.Option(
+        False, "--force-unlock", help="Clear stale lock and proceed."
+    ),
 ) -> None:
     """Import official platform data export → parsed JSONL."""
     import_command(platform, path, force_unlock=force_unlock)

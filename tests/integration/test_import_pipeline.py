@@ -13,9 +13,7 @@ X_FIXTURE = PROJECT_ROOT / "tests" / "fixtures" / "x" / "archive_v1.zip"
 
 def _setup_project(tmp_path: Path) -> None:
     (tmp_path / ".env.example").write_text("\n")
-    (tmp_path / "config.yml.example").write_text(
-        "storage:\n  data_dir: ./data\n  gzip_raw: true\n"
-    )
+    (tmp_path / "config.yml.example").write_text("storage:\n  data_dir: ./data\n  gzip_raw: true\n")
     runner.invoke(app, ["init"], catch_exceptions=False)
 
 
@@ -46,9 +44,9 @@ def test_import_appends_sync_log_event(tmp_path: Path, monkeypatch):
     _setup_project(tmp_path)
     runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
     log = (tmp_path / "data" / "sync_log.jsonl").read_text().splitlines()
-    events = [l for l in log if l.strip()]
-    assert any('"event": "import.start"' in l for l in events)
-    assert any('"event": "import.end"' in l for l in events)
+    events = [line for line in log if line.strip()]
+    assert any('"event": "import.start"' in line for line in events)
+    assert any('"event": "import.end"' in line for line in events)
 
 
 def test_import_unknown_platform_exits_nonzero(tmp_path: Path, monkeypatch):
@@ -63,8 +61,9 @@ def test_import_blocks_when_lock_held(tmp_path: Path, monkeypatch):
     _setup_project(tmp_path)
     # simulate held lock from current process (which IS alive, so not stale)
     lock = tmp_path / "data" / ".lock"
-    import os
     import json
+    import os
+
     lock.write_text(json.dumps({"pid": os.getpid(), "started_at": "x", "hostname": "h"}))
     result = runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
     assert result.exit_code == 6

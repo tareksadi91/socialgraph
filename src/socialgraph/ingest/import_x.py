@@ -9,12 +9,13 @@ JSON payloads. This importer:
   4. Emits one RawContact per follower/following entry.
   5. Selectively ignores tweets.js, direct-messages.js, etc. (privacy + scope).
 """
+
 from __future__ import annotations
 
 import json
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +35,7 @@ def _strip_js_wrapper(text: str) -> Any:
     eq_idx = text.find("=")
     if eq_idx == -1:
         raise XArchiveError("JS wrapper missing '='")
-    payload = text[eq_idx + 1:].strip()
+    payload = text[eq_idx + 1 :].strip()
     return json.loads(payload)
 
 
@@ -59,7 +60,7 @@ def import_x_archive(src: Path, dst: Path, run_id: str) -> list[RawContact]:
     follower = _strip_js_wrapper(follower_raw)
 
     contacts: list[RawContact] = []
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     def _emit(entries: Any, key: str, direction: str) -> None:
         for entry in entries:
@@ -71,18 +72,20 @@ def import_x_archive(src: Path, dst: Path, run_id: str) -> list[RawContact]:
                 continue
             slug = handle or account_id
             profile_url = user_link or f"https://x.com/{slug}"
-            contacts.append(RawContact(
-                raw_id=f"{run_id}#{slug}",
-                platform="x",
-                source="import",
-                platform_native_id=slug,
-                profile_url=profile_url,
-                observed_at=now,
-                run_id=run_id,
-                full_name=handle or slug,
-                handle=handle,
-                follow_direction=direction,  # type: ignore[arg-type]
-            ))
+            contacts.append(
+                RawContact(
+                    raw_id=f"{run_id}#{slug}",
+                    platform="x",
+                    source="import",
+                    platform_native_id=slug,
+                    profile_url=profile_url,
+                    observed_at=now,
+                    run_id=run_id,
+                    full_name=handle or slug,
+                    handle=handle,
+                    follow_direction=direction,  # type: ignore[arg-type]
+                )
+            )
 
     _emit(following, "following", "following")
     _emit(follower, "follower", "follower")

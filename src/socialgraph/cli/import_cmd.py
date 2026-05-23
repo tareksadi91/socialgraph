@@ -5,11 +5,12 @@ Wraps the linkedin/x ingesters in:
 - sync_log start/end events
 - structured exit codes
 """
+
 from __future__ import annotations
 
 import time
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -36,7 +37,7 @@ def _new_run_id() -> str:
     `parsed_for_run(platform, source, run_id)` will prepend `{platform}_{source}_`
     on its own — keep this bare to avoid duplicate prefixes in filenames.
     """
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     return f"{ts}_{uuid.uuid4().hex[:6]}"
 
 
@@ -63,7 +64,11 @@ def import_command(platform: str, path: Path, force_unlock: bool) -> None:
     try:
         with Lock(paths.lock_file, force_unlock=force_unlock):
             log.append(
-                "import.start", cmd="import", platform=platform, run_id=run_id, source_path=str(path)
+                "import.start",
+                cmd="import",
+                platform=platform,
+                run_id=run_id,
+                source_path=str(path),
             )
             t0 = time.monotonic()
             try:

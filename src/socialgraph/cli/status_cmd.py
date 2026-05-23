@@ -4,6 +4,7 @@ M1 scope: counts only (parsed file counts per platform, last import timestamps,
 last few error events from sync_log). Later milestones extend with graph
 counts, pending merges, port queue state.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
