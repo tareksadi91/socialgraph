@@ -742,6 +742,12 @@ web:
 privacy:
   allow_pii_logs: false
   strip_emails_on_import: false
+
+acks:
+  # Set by `--i-understand-tos-risk` and one-time no-LLM banner.
+  # Written by tool; users normally don't edit.
+  tos_acked_at: null
+  no_llm_acked_at: null
 ```
 
 ---
@@ -755,13 +761,13 @@ privacy:
 
 ---
 
-## 11. Open Questions
+## 11. Decisions (formerly open questions)
 
-1. **Scrape disabled by default?** Should `socialgraph scrape` require an explicit `--i-understand-tos-risk` flag on first run? Recommend: yes, one-time persisted ack.
-2. **Photo URL rot.** Store URL only in MVP. v2 cache toggle. Acceptable?
-3. **`socialgraph dev`** scope: dev servers only, or include hot-reload watcher on FastAPI? Recommend: dev servers only for MVP.
-4. **Test fixture sanitization script** — ship one? Recommend: yes, `scripts/sanitize_fixtures.py`.
-5. **First-class no-LLM mode** UX — should `enabled: false` print a banner reminding which fields will be null on scrape? Recommend: yes, one-time.
+1. **Scrape requires explicit opt-in.** First `socialgraph scrape` invocation refuses unless `--i-understand-tos-risk` passed. Ack persisted to `data/.tos_ack` so future runs proceed silently.
+2. **Photo URL only in MVP.** No binary cache. URLs may rot; viz falls back to initials. Binary cache = v2 toggle.
+3. **`socialgraph dev` spawns servers, no hot-reload.** Hot-reload = run `uvicorn --reload` manually per CONTRIBUTING.md.
+4. **Ship `scripts/sanitize_fixtures.py`** for contributors building new fixtures from real data. Strips names → synthetic, URLs → example.com, emails removed.
+5. **No-LLM banner prints once.** First scrape run with `llm.enabled: false` shows one-time banner listing null fields. Suppress with `--quiet`. Ack persisted to `data/.no_llm_ack`.
 
 ---
 
