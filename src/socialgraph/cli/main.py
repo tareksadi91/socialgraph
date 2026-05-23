@@ -15,6 +15,7 @@ from socialgraph import __version__
 from socialgraph.cli.import_cmd import import_command
 from socialgraph.cli.init_cmd import init_command
 from socialgraph.cli.link_cmd import link_command
+from socialgraph.cli.login_cmd import login_command
 from socialgraph.cli.merge_review_cmd import merge_review_command
 from socialgraph.cli.neighbors_cmd import neighbors_command
 from socialgraph.cli.rebuild_cmd import rebuild_command
@@ -118,6 +119,14 @@ def unmerge(
 ) -> None:
     """Split a wrongly-merged person back into separate identities."""
     unmerge_command(canonical_id)
+
+
+@app.command("login")
+def login(
+    platform: str = typer.Argument(..., help="linkedin | x"),
+) -> None:
+    """Open Chromium so you can log in; session persists for later commands."""
+    login_command(platform)
 
 
 if __name__ == "__main__":
