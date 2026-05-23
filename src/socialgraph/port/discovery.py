@@ -60,6 +60,8 @@ def run_tiers(
         if result.handle is not None and result.confidence >= auto_resolve_threshold:
             return result  # auto-resolve, stop cascade
 
+        # Below-threshold handles are intentionally dropped: tiers that want
+        # results in the review queue must put them in candidates, not handle.
         all_candidates.extend(result.candidates)
 
     return DiscoveryResult(

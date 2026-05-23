@@ -1,4 +1,4 @@
-from socialgraph.port.discovery import DiscoveryResult, run_tiers
+from socialgraph.port.discovery import DiscoveryResult, Tier, run_tiers
 from socialgraph.port.state import PortCandidate
 
 
@@ -11,11 +11,9 @@ def _candidate(handle: str, score: float = 0.9, source: str = "test") -> PortCan
 class AlwaysHitTier:
     """Fake tier that always returns a resolved handle."""
 
-    confidence = 1.0
-
     def discover(self, name: str, company: str | None, profile_url: str) -> DiscoveryResult:
         return DiscoveryResult(
-            handle=f"@{name.lower().replace(' ', '_')}",
+            handle=f"{name.lower().replace(' ', '_')}",
             confidence=1.0,
             source="always_hit",
             candidates=[],
@@ -23,8 +21,6 @@ class AlwaysHitTier:
 
 
 class AlwaysMissTier:
-    confidence = 0.0
-
     def discover(self, name: str, company: str | None, profile_url: str) -> DiscoveryResult:
         return DiscoveryResult(handle=None, confidence=0.0, source="always_miss", candidates=[])
 
@@ -103,3 +99,30 @@ def test_port_candidate_has_source_field():
         handle="x", display_name="X", bio_preview="", score=0.9, rationale="", source="google_cse"
     )
     assert c2.source == "google_cse"
+
+
+def test_tier_protocol_isinstance():
+    assert isinstance(AlwaysHitTier(), Tier)
+    assert isinstance(AlwaysMissTier(), Tier)
+    assert isinstance(CandidateTier(), Tier)
+
+
+class BrokenTier:
+    """Tier that always raises."""
+
+    def discover(self, name: str, company: str | None, profile_url: str) -> DiscoveryResult:
+        raise RuntimeError("network unreachable")
+
+
+def test_run_tiers_skips_broken_tier():
+    broken = BrokenTier()
+    hit = AlwaysHitTier()
+    result = run_tiers(
+        "Alice",
+        None,
+        "https://linkedin.com/in/alice",
+        tiers=[broken, hit],
+        auto_resolve_threshold=1.0,
+    )
+    assert result.handle is not None
+    assert result.source == "always_hit"
