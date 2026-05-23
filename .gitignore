@@ -1,3 +1,16 @@
 data/
 .env
 *.key
+*.pem
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.pyright_cache/
+dist/
+build/
+*.egg-info/
+.venv/
+node_modules/
