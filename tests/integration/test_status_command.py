@@ -46,3 +46,14 @@ def test_status_shows_graph_counts(tmp_path: Path, monkeypatch):
     assert result.exit_code == 0
     assert "persons" in result.stdout
     assert "companies" in result.stdout
+
+
+def test_status_shows_pending_merges_count(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _setup(tmp_path)
+    runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
+    runner.invoke(app, ["import", "x", str(X_FIXTURE)])
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 0
+    # Should show pending merges section (count may be 0 with fixture data)
+    assert "pending" in result.stdout.lower() or "merge" in result.stdout.lower()

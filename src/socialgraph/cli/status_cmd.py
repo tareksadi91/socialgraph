@@ -11,6 +11,7 @@ from pathlib import Path
 
 import typer
 
+from socialgraph.identity.pending import PendingMergeQueue
 from socialgraph.paths import DataPaths
 from socialgraph.snapshot.store import SnapshotStore
 from socialgraph.sync_log import SyncLog
@@ -72,3 +73,12 @@ def status_command() -> None:
         typer.echo(f"  {len(snap.edges)} edges")
     else:
         typer.echo("\ngraph: (none — run 'socialgraph import' to build)")
+
+    # Pending merge count
+    queue = PendingMergeQueue(paths.pending_merges)
+    pending_count = queue.count_pending()
+    if pending_count > 0:
+        typer.echo(f"\npending merges: {pending_count}")
+        typer.echo("  run: socialgraph merge-review")
+    else:
+        typer.echo("\npending merges: 0")
