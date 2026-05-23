@@ -9,8 +9,6 @@ Wraps the linkedin/x ingesters in:
 from __future__ import annotations
 
 import time
-import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
 import typer
@@ -23,17 +21,8 @@ from socialgraph.ingest.import_x import (
 )
 from socialgraph.lockfile import Lock, LockHeldError
 from socialgraph.paths import DataPaths
+from socialgraph.runs import new_run_id
 from socialgraph.sync_log import SyncLog
-
-
-def _new_run_id() -> str:
-    """Return a UTC-timestamped, collision-resistant run identifier.
-
-    `parsed_for_run(platform, source, run_id)` will prepend `{platform}_{source}_`
-    on its own — keep this bare to avoid duplicate prefixes in filenames.
-    """
-    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    return f"{ts}_{uuid.uuid4().hex[:6]}"
 
 
 def import_command(platform: str, path: Path, force_unlock: bool) -> None:
@@ -53,7 +42,7 @@ def import_command(platform: str, path: Path, force_unlock: bool) -> None:
     paths = DataPaths(data_root)
     paths.ensure()
     log = SyncLog(paths.sync_log)
-    run_id = _new_run_id()
+    run_id = new_run_id()
     dst = paths.parsed_for_run(platform, "import", run_id)
 
     try:
