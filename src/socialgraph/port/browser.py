@@ -31,6 +31,18 @@ def launch_persistent_browser(
             user_data_dir=str(profile_dir),
             headless=not headed,
             viewport={"width": 1280, "height": 800},
+            # Stealth flags — suppress automation signals that trigger X's "not secure" warning
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+            ],
+            ignore_default_args=["--enable-automation"],
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
         )
         try:
             yield context
