@@ -2,6 +2,7 @@
 
 For each entry in needs_review, show the candidate list and prompt:
   1..N    pick that candidate (1-indexed)
+  t       type handle manually (for unresolved entries with no candidates)
   n       reject all (no X handle for this person)
   s       skip (decide later)
   q       quit
