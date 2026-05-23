@@ -12,6 +12,7 @@ from pathlib import Path
 import typer
 
 from socialgraph.paths import DataPaths
+from socialgraph.snapshot.store import SnapshotStore
 from socialgraph.sync_log import SyncLog
 
 
@@ -60,3 +61,14 @@ def status_command() -> None:
         typer.echo("\nrecent errors:")
         for e in errors:
             typer.echo(f"  {e.get('ts', '')} {e.get('event', '')}: {e.get('message', '')}")
+
+    # Graph counts from latest snapshot
+    store = SnapshotStore(paths.snapshots)
+    snap = store.read_latest()
+    if snap is not None:
+        typer.echo("\ngraph:")
+        typer.echo(f"  {len(snap.persons)} persons")
+        typer.echo(f"  {len(snap.companies)} companies")
+        typer.echo(f"  {len(snap.edges)} edges")
+    else:
+        typer.echo("\ngraph: (none — run 'socialgraph import' to build)")

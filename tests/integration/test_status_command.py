@@ -36,3 +36,13 @@ def test_status_after_imports(tmp_path: Path, monkeypatch):
     assert "linkedin: 3 contacts" in result.stdout
     assert "x: 3 contacts" in result.stdout
     assert "parsed:" in result.stdout
+
+
+def test_status_shows_graph_counts(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _setup(tmp_path)
+    runner.invoke(app, ["import", "linkedin", str(LINKEDIN_FIXTURE)])
+    result = runner.invoke(app, ["status"])
+    assert result.exit_code == 0
+    assert "persons" in result.stdout
+    assert "companies" in result.stdout
