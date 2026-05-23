@@ -19,6 +19,9 @@ from socialgraph.cli.login_cmd import login_command
 from socialgraph.cli.merge_review_cmd import merge_review_command
 from socialgraph.cli.neighbors_cmd import neighbors_command
 from socialgraph.cli.port_discover_cmd import port_discover_command
+from socialgraph.cli.port_next_cmd import port_next_command
+from socialgraph.cli.port_queue_cmd import port_queue_command
+from socialgraph.cli.port_review_cmd import port_review_command
 from socialgraph.cli.rebuild_cmd import rebuild_command
 from socialgraph.cli.status_cmd import status_command
 from socialgraph.cli.unmerge_cmd import unmerge_command
@@ -143,6 +146,24 @@ def port_discover(
 ) -> None:
     """Search X for handles matching LinkedIn contacts."""
     port_discover_command(limit)
+
+
+@port_app.command("review")
+def port_review() -> None:
+    """Review X handle candidates and pick the right one (or reject)."""
+    port_review_command()
+
+
+@port_app.command("queue")
+def port_queue() -> None:
+    """Show the upcoming follow queue."""
+    port_queue_command()
+
+
+@port_app.command("next")
+def port_next() -> None:
+    """Walk through the follow queue one X profile at a time."""
+    port_next_command()
 
 
 if __name__ == "__main__":
