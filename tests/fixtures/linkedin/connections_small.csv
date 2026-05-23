@@ -1,0 +1,7 @@
+Notes:
+"When exporting your connections data, you can also choose to export your contacts, which includes additional fields."
+"
+First Name,Last Name,URL,Email Address,Company,Position,Connected On
+Alice,Example,https://www.linkedin.com/in/alice-example,alice@example.com,Acme Co,Founder,23 May 2024
+Bob,Sample,https://www.linkedin.com/in/bob-sample,,Beta Corp,Engineer,01 Jan 2023
+Carol,Test,https://www.linkedin.com/in/carol-test,carol@test.org,Acme Co,Designer,15 Jul 2022
