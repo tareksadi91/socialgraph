@@ -30,3 +30,14 @@ web:
   bind: 127.0.0.1
   api_port: 8000
   ui_port: 3000
+
+port:
+  # Discovery tiers run in order until a handle is found.
+  # Tier 1 (linkedin_contact_info): auto-resolves; requires `socialgraph login linkedin`
+  # Tier 2 (google_cse): needs GOOGLE_CSE_API_KEY + GOOGLE_CSE_ID in .env
+  # Tier 3 (apollo): optional; needs APOLLO_API_KEY in .env
+  # Tier 4 (unresolved): always active — `port review [t]` for manual entry
+  discovery_tiers:
+    - linkedin_contact_info
+    - google_cse
+    - apollo
