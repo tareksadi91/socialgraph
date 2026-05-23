@@ -13,6 +13,7 @@ import typer
 from socialgraph import __version__
 from socialgraph.cli.import_cmd import import_command
 from socialgraph.cli.init_cmd import init_command
+from socialgraph.cli.status_cmd import status_command
 
 app = typer.Typer(
     name="socialgraph",
@@ -51,6 +52,12 @@ def import_(
 ) -> None:
     """Import official platform data export → parsed JSONL."""
     import_command(platform, path, force_unlock=force_unlock)
+
+
+@app.command("status")
+def status() -> None:
+    """Show counts of parsed files, last imports, recent errors."""
+    status_command()
 
 
 if __name__ == "__main__":
