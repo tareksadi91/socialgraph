@@ -50,3 +50,40 @@ def test_get_all_returns_mapping(tmp_path: Path):
     mapping = log.get_all()
     assert mapping["linkedin#alice"] == c1
     assert mapping["linkedin#bob"] == c2
+
+
+def test_merge_method_writes_event(tmp_path: Path):
+    import json
+
+    p = tmp_path / "merge_decisions.jsonl"
+    log = CanonicalLog(p)
+    c1 = log.get_or_create("linkedin#alice")
+    log.get_or_create("x#alice-x")
+    log.merge(["x#alice-x"], target_canonical_id=c1)
+    # After merge, x#alice-x should map to c1
+    assert log.get_or_create("x#alice-x") == c1
+    events = [json.loads(line) for line in p.read_text().splitlines()]
+    assert any(e["event"] == "merge" for e in events)
+
+
+def test_unmerge_method_restores_separate_ids(tmp_path: Path):
+    import uuid as _uuid
+
+    p = tmp_path / "merge_decisions.jsonl"
+    log = CanonicalLog(p)
+    c1 = log.get_or_create("linkedin#alice")
+    log.merge(["x#alice-x"], target_canonical_id=c1)
+    fresh = str(_uuid.uuid4())
+    log.unmerge(reassignments={"x#alice-x": fresh})
+    assert log.get_or_create("x#alice-x") == fresh
+    assert log.get_or_create("linkedin#alice") == c1  # unchanged
+
+
+def test_raw_ids_for_canonical(tmp_path: Path):
+    log = CanonicalLog(tmp_path / "merge_decisions.jsonl")
+    c1 = log.get_or_create("linkedin#alice")
+    log.get_or_create("x#alice-x")
+    log.merge(["x#alice-x"], target_canonical_id=c1)
+    raw_ids = log.raw_ids_for(c1)
+    assert "linkedin#alice" in raw_ids
+    assert "x#alice-x" in raw_ids

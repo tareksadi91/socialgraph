@@ -61,6 +61,22 @@ class CanonicalLog:
         """Return snapshot of current raw_id → canonical_id mapping."""
         return dict(self._cache)
 
+    def merge(self, raw_ids: list[str], target_canonical_id: str) -> None:
+        """Merge raw_ids under a single canonical_id (write merge event)."""
+        for rid in raw_ids:
+            self._cache[rid] = target_canonical_id
+        self._append({"event": "merge", "canonical_id": target_canonical_id, "raw_ids": raw_ids})
+
+    def unmerge(self, reassignments: dict[str, str]) -> None:
+        """Reassign raw_ids to new canonical_ids (write unmerge event)."""
+        for rid, new_cid in reassignments.items():
+            self._cache[rid] = new_cid
+        self._append({"event": "unmerge", "reassignments": reassignments})
+
+    def raw_ids_for(self, canonical_id: str) -> list[str]:
+        """Return all raw_ids currently mapped to a canonical_id."""
+        return [rid for rid, cid in self._cache.items() if cid == canonical_id]
+
     def _append(self, record: dict) -> None:
         record["ts"] = datetime.now(UTC).isoformat()
         self.path.parent.mkdir(parents=True, exist_ok=True)
