@@ -75,3 +75,19 @@ def test_port_review_quit_immediately(tmp_path: Path, monkeypatch):
     paths = DataPaths(tmp_path / "data")
     state = PortState(paths.port_state)
     assert len(state.list_needs_review()) == 1  # untouched
+
+
+def test_port_review_type_handle_manually(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _setup(tmp_path)
+    # Seed a review entry with NO candidates (unresolved)
+    paths = DataPaths(tmp_path / "data")
+    state = PortState(paths.port_state)
+    state.record_discovered(linkedin_canonical_id="li-unresolved", candidates=[])
+    # Input: 't' to type, then the handle, then quit
+    result = runner.invoke(app, ["port", "review"], input="t\nmanual_handle\nq\n")
+    assert result.exit_code == 0
+    state = PortState(paths.port_state)
+    queued = state.list_queued()
+    assert len(queued) == 1
+    assert queued[0].selected_handle == "manual_handle"

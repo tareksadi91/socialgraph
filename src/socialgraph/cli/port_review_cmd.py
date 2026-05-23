@@ -27,16 +27,21 @@ def port_review_command() -> None:
         return
 
     typer.echo(f"{len(pending)} candidate set(s) to review.")
-    typer.echo("  pick: 1..N   skip: s   reject: n   quit: q\n")
+    typer.echo("  pick: 1..N   type: t   skip: s   reject: n   quit: q\n")
 
     for entry in pending:
         typer.echo("─" * 60)
         typer.echo(f"  LinkedIn: {entry.linkedin_canonical_id[:8]}...")
-        for idx, c in enumerate(entry.candidates, start=1):
-            line = f"  [{idx}] @{c.handle}  ({c.display_name})  score={c.score:.2f}"
-            if c.bio_preview:
-                line += f"  — {c.bio_preview[:80]}"
-            typer.echo(line)
+        if entry.candidates:
+            for idx, c in enumerate(entry.candidates, start=1):
+                line = (
+                    f"  [{idx}] @{c.handle}  ({c.display_name})  score={c.score:.2f}  [{c.source}]"
+                )
+                if c.bio_preview:
+                    line += f"  — {c.bio_preview[:80]}"
+                typer.echo(line)
+        else:
+            typer.echo("  (no candidates found — use [t] to enter handle manually)")
 
         choice = typer.prompt("\n  Decision", default="s").strip().lower()
 
@@ -49,6 +54,15 @@ def port_review_command() -> None:
             continue
         if choice in ("s", ""):
             typer.echo("  skipped")
+            continue
+        if choice == "t":
+            handle = typer.prompt("    Type X handle (without @)").strip().lstrip("@")
+            if handle:
+                state.resolve(entry.candidate_id, selected_handle=handle)
+                state.queue(entry.candidate_id, x_profile_url=f"https://x.com/{handle}")
+                typer.echo(f"  manually linked -> @{handle}, queued for follow")
+            else:
+                typer.echo("  empty handle, skipping")
             continue
         try:
             idx = int(choice) - 1
