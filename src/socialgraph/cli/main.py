@@ -18,6 +18,7 @@ from socialgraph.cli.link_cmd import link_command
 from socialgraph.cli.login_cmd import login_command
 from socialgraph.cli.merge_review_cmd import merge_review_command
 from socialgraph.cli.neighbors_cmd import neighbors_command
+from socialgraph.cli.port_discover_cmd import port_discover_command
 from socialgraph.cli.rebuild_cmd import rebuild_command
 from socialgraph.cli.status_cmd import status_command
 from socialgraph.cli.unmerge_cmd import unmerge_command
@@ -29,6 +30,11 @@ app = typer.Typer(
     no_args_is_help=True,
     add_completion=False,
 )
+
+port_app = typer.Typer(
+    name="port", help="LinkedIn → X handle discovery & follow queue.", no_args_is_help=True
+)
+app.add_typer(port_app, name="port")
 
 
 def _version_callback(value: bool) -> None:
@@ -127,6 +133,16 @@ def login(
 ) -> None:
     """Open Chromium so you can log in; session persists for later commands."""
     login_command(platform)
+
+
+@port_app.command("discover")
+def port_discover(
+    limit: int = typer.Option(
+        50, "--limit", "-n", help="Max LinkedIn contacts to search this run."
+    ),
+) -> None:
+    """Search X for handles matching LinkedIn contacts."""
+    port_discover_command(limit)
 
 
 if __name__ == "__main__":
