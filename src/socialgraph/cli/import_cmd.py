@@ -30,9 +30,14 @@ from socialgraph.paths import DataPaths
 from socialgraph.sync_log import SyncLog
 
 
-def _new_run_id(platform: str) -> str:
+def _new_run_id() -> str:
+    """Return a UTC-timestamped, collision-resistant run identifier.
+
+    `parsed_for_run(platform, source, run_id)` will prepend `{platform}_{source}_`
+    on its own — keep this bare to avoid duplicate prefixes in filenames.
+    """
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return f"{platform}_import_{ts}_{uuid.uuid4().hex[:6]}"
+    return f"{ts}_{uuid.uuid4().hex[:6]}"
 
 
 def import_command(platform: str, path: Path, force_unlock: bool) -> None:
@@ -52,7 +57,7 @@ def import_command(platform: str, path: Path, force_unlock: bool) -> None:
     paths = DataPaths(data_root)
     paths.ensure()
     log = SyncLog(paths.sync_log)
-    run_id = _new_run_id(platform)
+    run_id = _new_run_id()
     dst = paths.parsed_for_run(platform, "import", run_id)
 
     try:
