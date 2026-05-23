@@ -15,6 +15,7 @@ from socialgraph import __version__
 from socialgraph.cli.import_cmd import import_command
 from socialgraph.cli.init_cmd import init_command
 from socialgraph.cli.neighbors_cmd import neighbors_command
+from socialgraph.cli.rebuild_cmd import rebuild_command
 from socialgraph.cli.status_cmd import status_command
 from socialgraph.cli.who_at_cmd import who_at_command
 
@@ -68,6 +69,12 @@ def import_(
 def status() -> None:
     """Show counts of parsed files, last imports, recent errors."""
     status_command()
+
+
+@app.command("rebuild")
+def rebuild() -> None:
+    """Rebuild graph from all parsed JSONL files (restores after nuke)."""
+    rebuild_command()
 
 
 @app.command("who-at")
