@@ -10,6 +10,7 @@ Run `socialgraph login linkedin` first.
 
 from __future__ import annotations
 
+import random
 import re
 import time
 from pathlib import Path
@@ -65,13 +66,11 @@ class LinkedInContactInfoClient:
         self._context = self._playwright_cm.__enter__()
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, *exc):
         if self._playwright_cm is not None:
-            self._playwright_cm.__exit__(*exc)
+            return self._playwright_cm.__exit__(*exc)
 
     def _throttle(self) -> None:
-        import random
-
         elapsed = time.monotonic() - self._last_request_at
         wait = self.throttle_seconds + random.uniform(0, 1.0) - elapsed
         if wait > 0:
@@ -103,26 +102,25 @@ class LinkedInContactInfoClient:
         contact_url = f"https://www.linkedin.com/in/{slug}/overlay/contact-info/"
         try:
             page = self._get_page(contact_url)
-            # Find all anchor hrefs in the contact-info overlay
-            links = page.query_selector_all("a[href]")
-            for link in links:
-                href = link.get_attribute("href") or ""
-                handle = _extract_handle_from_social_url(href)
-                if handle:
-                    try:
-                        page.close()
-                    except Exception:
-                        pass
-                    return DiscoveryResult(
-                        handle=handle,
-                        confidence=1.0,
-                        source="li_contact_info",
-                        candidates=[],
-                    )
             try:
-                page.close()
-            except Exception:
-                pass
+                links = page.query_selector_all("a[href]")
+                for link in links:
+                    href = link.get_attribute("href") or ""
+                    handle = _extract_handle_from_social_url(href)
+                    if handle:
+                        return DiscoveryResult(
+                            handle=handle,
+                            confidence=1.0,
+                            source="li_contact_info",
+                            candidates=[],
+                        )
+            finally:
+                try:
+                    page.close()
+                except Exception:
+                    pass
+        except RuntimeError:
+            raise
         except Exception:
             pass
         return DiscoveryResult(

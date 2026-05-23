@@ -60,3 +60,13 @@ def test_extracts_handle_from_various_url_formats(tmp_path):
     assert _extract_handle_from_social_url("https://x.com/alice_example/") == "alice_example"
     assert _extract_handle_from_social_url("https://x.com/i/user/12345") is None  # reserved path
     assert _extract_handle_from_social_url("https://linkedin.com/in/alice") is None  # wrong domain
+
+
+def test_closes_page_on_mid_scrape_error(tmp_path):
+    client = _make_client(tmp_path)
+    mock_page = MagicMock()
+    mock_page.query_selector_all.side_effect = Exception("CDP crash")
+    with patch.object(client, "_get_page", return_value=mock_page):
+        result = client.discover("Alice", None, "https://www.linkedin.com/in/alice")
+    assert result.handle is None
+    mock_page.close.assert_called_once()
