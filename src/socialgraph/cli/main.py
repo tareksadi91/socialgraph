@@ -14,9 +14,12 @@ import typer
 from socialgraph import __version__
 from socialgraph.cli.import_cmd import import_command
 from socialgraph.cli.init_cmd import init_command
+from socialgraph.cli.link_cmd import link_command
+from socialgraph.cli.merge_review_cmd import merge_review_command
 from socialgraph.cli.neighbors_cmd import neighbors_command
 from socialgraph.cli.rebuild_cmd import rebuild_command
 from socialgraph.cli.status_cmd import status_command
+from socialgraph.cli.unmerge_cmd import unmerge_command
 from socialgraph.cli.who_at_cmd import who_at_command
 
 app = typer.Typer(
@@ -90,6 +93,31 @@ def neighbors(
 ) -> None:
     """List company colleagues of a person (depth=1: same company)."""
     neighbors_command(canonical_id, depth)
+
+
+@app.command("merge-review")
+def merge_review() -> None:
+    """Interactively review cross-platform merge candidates."""
+    merge_review_command()
+
+
+@app.command("link")
+def link(
+    canonical_id_a: str = typer.Argument(..., help="Canonical ID to keep (primary)"),
+    canonical_id_b: str = typer.Argument(..., help="Canonical ID to merge into id_a"),
+) -> None:
+    """Explicitly link two persons as the same individual."""
+    link_command(canonical_id_a, canonical_id_b)
+
+
+@app.command("unmerge")
+def unmerge(
+    canonical_id: str = typer.Argument(
+        ..., help="Canonical ID to split back into separate persons"
+    ),
+) -> None:
+    """Split a wrongly-merged person back into separate identities."""
+    unmerge_command(canonical_id)
 
 
 if __name__ == "__main__":
