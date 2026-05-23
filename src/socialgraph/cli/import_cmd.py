@@ -21,6 +21,7 @@ from socialgraph.ingest.import_x import (
 )
 from socialgraph.lockfile import Lock, LockHeldError
 from socialgraph.paths import DataPaths
+from socialgraph.pipeline import run_pipeline
 from socialgraph.runs import new_run_id
 from socialgraph.sync_log import SyncLog
 
@@ -79,7 +80,13 @@ def import_command(platform: str, path: Path, force_unlock: bool) -> None:
                 duration_ms=duration_ms,
                 out_path=str(dst),
             )
+            counts = run_pipeline(paths)
             typer.echo(f"imported {len(contacts)} contacts → {dst}")
+            if counts["snapshot_written"]:
+                typer.echo(
+                    f"graph updated: {counts['persons']} persons, "
+                    f"{counts['companies']} companies, {counts['edges']} edges"
+                )
     except LockHeldError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=ExitCode.LOCK_HELD) from exc
