@@ -1,0 +1,32 @@
+llm:
+  enabled: true
+  provider: anthropic
+  model: claude-sonnet-4-6
+  api_key: env:ANTHROPIC_API_KEY
+  temperature: 0
+  cache: true
+
+platforms:
+  linkedin:
+    enabled: true
+    profile_dir: ./data/profiles/linkedin
+    scrape:
+      throttle_seconds: 5
+      jitter: 2
+      headed: true
+  x:
+    enabled: true
+    profile_dir: ./data/profiles/x
+    scrape:
+      throttle_seconds: 3
+      jitter: 1
+      headed: true
+
+storage:
+  data_dir: ./data
+  gzip_raw: true
+
+web:
+  bind: 127.0.0.1
+  api_port: 8000
+  ui_port: 3000

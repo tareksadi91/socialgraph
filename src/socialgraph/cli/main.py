@@ -9,6 +9,7 @@ from __future__ import annotations
 import typer
 
 from socialgraph import __version__
+from socialgraph.cli.init_cmd import init_command
 
 app = typer.Typer(
     name="socialgraph",
@@ -31,6 +32,12 @@ def _root(
     ),
 ) -> None:
     """SocialGraph CLI."""
+
+
+@app.command("init")
+def init() -> None:
+    """Scaffold data/ dir and copy example .env / config.yml."""
+    init_command()
 
 
 if __name__ == "__main__":
