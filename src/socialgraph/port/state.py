@@ -40,6 +40,7 @@ class PortCandidate:
     bio_preview: str
     score: float
     rationale: str
+    source: str = ""  # which tier discovered this: li_contact_info | google_cse | apollo | manual
 
 
 @dataclass
@@ -76,7 +77,7 @@ class PortState:
             candidate_id=candidate_id,
             linkedin_canonical_id=linkedin_canonical_id,
             candidates=candidates,
-            status="needs_review" if candidates else "rejected",
+            status="needs_review",
         )
         self._entries[candidate_id] = entry
         self._linkedin_to_candidate[linkedin_canonical_id] = candidate_id
@@ -205,7 +206,7 @@ class PortState:
                 candidate_id=cid,
                 linkedin_canonical_id=event["linkedin_canonical_id"],
                 candidates=candidates,
-                status="needs_review" if candidates else "rejected",
+                status="needs_review",
             )
             self._entries[cid] = entry
             self._linkedin_to_candidate[entry.linkedin_canonical_id] = cid
