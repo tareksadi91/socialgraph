@@ -10,6 +10,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from socialgraph import __version__
 from socialgraph.cli.import_cmd import import_command
