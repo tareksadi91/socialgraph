@@ -46,10 +46,10 @@ def _extract_handle_from_url(url: str) -> str | None:
 
 
 def _build_query(name: str, company: str | None) -> str:
+    # No site: operator — CSE is already scoped to *.x.com/*
     q = f'"{name}"'
     if company:
         q += f' "{company}"'
-    q += " site:x.com"
     return q
 
 

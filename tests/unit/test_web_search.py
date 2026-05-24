@@ -9,7 +9,7 @@ from socialgraph.port.web_search import (
 
 def test_fake_returns_seeded_results():
     fake = FakeGoogleCSEClient(
-        responses={'"Alice Example" "Acme Co" site:x.com': ["alice_example"]},
+        responses={'"Alice Example" "Acme Co"': ["alice_example"]},
     )
     result = fake.discover("Alice Example", "Acme Co", "https://linkedin.com/in/alice")
     assert len(result.candidates) == 1
